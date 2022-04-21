@@ -1,0 +1,1598 @@
+SOURCE CODE:
+
+Package name: com.simplilearn.admin
+Class: AdminControllerServlet.java:
+
+packagecom.simplilearn.admin;
+importjava.io.IOException;
+importjava.util.List;
+importjavax.annotation.Resource;
+importjavax.servlet.RequestDispatcher;
+importjavax.servlet.ServletException;
+importjavax.servlet.annotation.WebServlet;
+importjavax.servlet.http.Cookie;
+importjavax.servlet.http.HttpServlet;
+importjavax.servlet.http.HttpServletRequest;
+importjavax.servlet.http.HttpServletResponse;
+importjavax.sql.DataSource;
+importcom.simplilearn.models.Student;
+importcom.simplilearn.models.Subject;
+importcom.simplilearn.models.Teacher;
+importcom.simplilearn.models.Class;
+
+/**
+* Servlet implementation class AdminControllerServlet
+*/
+@WebServlet("/AdminControllerServlet")
+public class AdminControllerServlet extends HttpServlet {
+private static final long serialVersionUID = 1L;
+privateDbRetrievedbRetrieve;
+@Resource(name = "jdbc_database")
+privateDataSourcedatasource;
+ @Override
+public void init() throws ServletException {
+super.init();
+ // create instance of dbutil, to pass in conn pool object
+try {
+dbRetrieve = new DbRetrieve(datasource);
+ } catch (Exception e) {
+throw new ServletException(e);
+}
+ }
+ /**
+ * @see HttpServlet#HttpServlet()
+ */
+publicAdminControllerServlet() {
+super();
+// TODO Auto-generated constructor stub
+}
+ @Override
+protected void doPost(HttpServletRequestreq, HttpServletResponseresp) throws ServletException, IOException {
+
+doGet(req, resp);
+}
+ /**
+ * @see HttpServlet#doGet(HttpServletRequest request, HttpServletResponse
+ *      response)
+ */
+protected void doGet(HttpServletRequest request, HttpServletResponse response)
+throwsServletException, IOException {
+// TODO Auto-generated method stub
+try {
+// read the "command" parameter
+String command = request.getParameter("command");
+
+if (command == null) {
+command = "CLASSES";
+}
+// if no cookeies
+if (!getCookies(request, response) && (!command.equals("LOGIN"))) {
+
+response.sendRedirect("/Administrative-Portal/login.jsp");
+}
+else {
+// if there is no command, how to handle
+// route the data to the appropriate method
+switch (command) {
+case "STUDENTS":
+studentsList(request, response);
+break;
+case "TEACHERS":
+teachersList(request, response);
+break;
+case "SUBJECTS":
+subjectList(request, response);
+break;
+case "CLASSES":
+classestList(request, response);
+break;
+
+case "ST_LIST":
+classStudentsList(request, response);
+break;
+
+case "LOGIN":
+login(request, response);
+break;
+
+default:
+classestList(request, response);
+
+}
+}
+} catch (Exception e) {
+throw new ServletException(e);
+}
+// response.getWriter().append("Served at: ").append(request.getContextPath());
+}
+
+private void studentsList(HttpServletRequest request, HttpServletResponse response) throws Exception {
+// get students from dbutil
+List<Student> students = dbRetrieve.getStudents();
+// add students to the request
+request.setAttribute("STUDENT_LIST", students);
+// send it to the jsp view page
+RequestDispatcher dispatcher = request.getRequestDispatcher("/list-students.jsp");
+dispatcher.forward(request, response);
+
+}
+private void teachersList(HttpServletRequest request, HttpServletResponse response) throws Exception {
+// get students from dbutil
+List<Teacher> teachers = dbRetrieve.getTeachers();
+// add students to the request
+request.setAttribute("TEACHERS_LIST", teachers);
+// send it to the jSP view page
+RequestDispatcher dispatcher = request.getRequestDispatcher("/teachers-list.jsp");
+dispatcher.forward(request, response);
+
+}
+
+private void subjectList(HttpServletRequest request, HttpServletResponse response) throws Exception {
+// get subjects from dbutil
+List<Subject> subjects = dbRetrieve.getSubjects();
+
+// add subjects to the request
+request.setAttribute("SUBJECTS_LIST", subjects);
+
+// send it to the jSP view page
+RequestDispatcher dispatcher = request.getRequestDispatcher("/subjects-list.jsp");
+dispatcher.forward(request, response);
+
+}
+private void classestList(HttpServletRequest request, HttpServletResponse response) throws Exception {
+// get subjects from dbutil
+List<Class> classes = dbRetrieve.getClasses();
+
+// add subjects to the request
+request.setAttribute("CLASSES_LIST", classes);
+
+// send it to the jSP view page
+RequestDispatcher dispatcher = request.getRequestDispatcher("/classes-list.jsp");
+dispatcher.forward(request, response);
+
+}
+
+private void login(HttpServletRequest request, HttpServletResponse response) throws Exception {
+String username = request.getParameter("username");
+String password = request.getParameter("password");
+
+if (username.toLowerCase().equals("admin") &&password.toLowerCase().equals("admin")) {
+
+Cookie cookie = new Cookie(username, password);
+
+// Setting the maximum age to 1 day
+cookie.setMaxAge(86400); // 86400 seconds in a day
+
+// Send the cookie to the client
+response.addCookie(cookie);
+classestList(request, response);
+} else {
+RequestDispatcher dispatcher = request.getRequestDispatcher("/login.jsp");
+dispatcher.forward(request, response);
+}
+
+}
+
+private void classStudentsList(HttpServletRequest request, HttpServletResponse response) throws Exception {
+
+intclassId = Integer.parseInt(request.getParameter("classId"));
+String section = request.getParameter("section");
+String subject = request.getParameter("subject");
+
+// get subjects from dbutil
+List<Student> students = dbRetrieve.loadClassStudents(classId);
+
+// add subjects to the request
+request.setAttribute("STUDENTS_LIST", students);
+request.setAttribute("SECTION", section);
+request.setAttribute("SUBJECT", subject);
+
+// send it to the jSP view page
+RequestDispatcher dispatcher = request.getRequestDispatcher("/class-students.jsp");
+dispatcher.forward(request, response);
+
+}
+
+privatebooleangetCookies(HttpServletRequest request, HttpServletResponse response) throws Exception {
+
+boolean check = false;
+Cookie[] cookies = request.getCookies();
+// Find the cookie of interest in arrays of cookies
+for (Cookie cookie : cookies) {
+
+if (cookie.getName().equals("admin") &&cookie.getValue().equals("admin")) {
+check = true;
+break;
+} 
+
+}
+return check;
+
+}
+
+}
+Class name:DbRetrieve.java
+packagecom.simplilearn.admin;
+importjava.sql.Connection;
+importjava.sql.ResultSet;
+importjava.sql.Statement;
+importjava.util.ArrayList;
+importjava.util.List;
+importjavax.sql.DataSource;
+importcom.simplilearn.models.Student;
+importcom.simplilearn.models.Subject;
+importcom.simplilearn.models.Teacher;
+importcom.simplilearn.models.Class;
+public class DbRetrieve {
+privateDataSourcedataSource;
+publicDbRetrieve(DataSourcedataSource) {
+this.dataSource = dataSource;
+}
+
+public List<Student>getStudents() {
+ List<Student> students = new ArrayList<>();
+ Connection myConn = null;
+Statement myStmt = null;
+ResultSetmyRs = null;
+
+try {
+
+// get a connection
+myConn = dataSource.getConnection();
+
+// create sqlstmt
+String sql = "SELECT * FROM students";
+myStmt = myConn.createStatement();
+
+// execute query
+myRs = myStmt.executeQuery(sql);
+
+// process result
+while (myRs.next()) {
+
+// retrieve data from result set row
+int id = myRs.getInt("id");
+String firstName = myRs.getString("fname");
+String lastName = myRs.getString("lname");
+int age = myRs.getInt("age");
+intaclass = myRs.getInt("class");
+
+// create new student object
+Student tempStudent = new Student(id, firstName, lastName, age, aclass);
+
+// add it to the list of students
+students.add(tempStudent);
+
+}
+
+} catch (Exception e) {
+// TODO: handle exception
+} finally {
+// close JDBC objects
+close(myConn, myStmt, myRs);
+}
+return students;
+
+}
+
+public List<Teacher>getTeachers() {
+
+List<Teacher> teachers = new ArrayList<>();
+
+Connection myConn = null;
+Statement myStmt = null;
+ResultSetmyRs = null;
+
+try {
+
+// get a connection
+myConn = dataSource.getConnection();
+
+// create sqlstmt
+String sql = "SELECT * FROM teachers";
+myStmt = myConn.createStatement();
+
+// execute query
+myRs = myStmt.executeQuery(sql);
+
+// process result
+while (myRs.next()) {
+
+// retrieve data from result set row
+int id = myRs.getInt("id");
+String firstName = myRs.getString("fname");
+String lastName = myRs.getString("lname");
+int age = myRs.getInt("age");
+
+// create new student object
+Teacher temp = new Teacher(id, firstName, lastName, age);
+
+// add it to the list of students
+teachers.add(temp);
+
+}
+
+} catch (Exception e) {
+// TODO: handle exception
+} finally {
+// close JDBC objects
+close(myConn, myStmt, myRs);
+}
+return teachers;
+
+}
+
+public List<Subject>getSubjects() {
+
+List<Subject> subjects = new ArrayList<>();
+
+Connection myConn = null;
+Statement myStmt = null;
+ResultSetmyRs = null;
+
+try {
+
+// get a connection
+myConn = dataSource.getConnection();
+
+// create sqlstmt
+String sql = "SELECT * FROM subjects";
+myStmt = myConn.createStatement();
+
+// execute query
+myRs = myStmt.executeQuery(sql);
+
+// process result
+while (myRs.next()) {
+
+// retrieve data from result set row
+int id = myRs.getInt("id");
+String name = myRs.getString("name");
+String shortcut = myRs.getString("shortcut");
+
+// create new student object
+Subject temp = new Subject(id, name,shortcut);
+
+// add it to the list of students
+subjects.add(temp);
+
+}
+
+} catch (Exception e) {
+// TODO: handle exception
+} finally {
+// close JDBC objects
+close(myConn, myStmt, myRs);
+}
+return subjects;
+
+}
+
+public List<Class>getClasses() {
+
+List<Class> classes = new ArrayList<>();
+
+Connection myConn = null;
+Statement myStmt = null;
+ResultSetmyRs = null;
+
+try {
+
+// get a connection
+myConn = dataSource.getConnection();
+
+// create sqlstmt
+String sql = "SELECT * FROM classes";
+myStmt = myConn.createStatement();
+
+// execute query
+myRs = myStmt.executeQuery(sql);
+
+// process result
+while (myRs.next()) {
+
+// retrieve data from result set row
+int id = myRs.getInt("id");
+int section = myRs.getInt("section");
+int subject = myRs.getInt("subject");
+int teacher = myRs.getInt("teacher");
+String time = myRs.getString("time");
+
+Teacher tempTeacher = loadTeacher(teacher);
+Subject tempSubject = loadSubject(subject);
+
+String teacher_name = tempTeacher.getFname() + " " + tempTeacher.getLname();
+
+// create new student object
+Class temp = new Class(id, section, teacher_name, tempSubject.getName(), time);
+
+// add it to the list of students
+classes.add(temp);
+
+}
+
+} catch (Exception e) {
+// TODO: handle exception
+} finally {
+// close JDBC objects
+close(myConn, myStmt, myRs);
+}
+return classes;
+
+}
+
+public Teacher loadTeacher(intteacherId) {
+
+Teacher theTeacher = null;
+
+Connection myConn = null;
+Statement myStmt = null;
+ResultSetmyRs = null;
+
+try {
+
+// get a connection
+myConn = dataSource.getConnection();
+
+// create sqlstmt
+String sql = "SELECT * FROM teachers WHERE id = " + teacherId;
+myStmt = myConn.createStatement();
+
+// execute query
+myRs = myStmt.executeQuery(sql);
+
+// process result
+while (myRs.next()) {
+
+// retrieve data from result set row
+int id = myRs.getInt("id");
+String fname = myRs.getString("fname");
+String lname = myRs.getString("lname");
+int age = myRs.getInt("age");
+theTeacher = new Teacher(id, fname, lname, age);
+
+}
+
+} catch (Exception e) {
+// TODO: handle exception
+} finally {
+// close JDBC objects
+close(myConn, myStmt, myRs);
+}
+returntheTeacher;
+
+}
+
+public Subject loadSubject(intsubjectId) {
+
+Subject theSubject = null;
+
+Connection myConn = null;
+Statement myStmt = null;
+ResultSetmyRs = null;
+
+try {
+
+// get a connection
+myConn = dataSource.getConnection();
+
+// create sqlstmt
+String sql = "SELECT * FROM subjects WHERE id = " + subjectId;
+myStmt = myConn.createStatement();
+
+// execute query
+myRs = myStmt.executeQuery(sql);
+
+// process result
+while (myRs.next()) {
+
+// retrieve data from result set row
+int id = myRs.getInt("id");
+String name = myRs.getString("name");
+String shortcut = myRs.getString("shortcut");
+
+theSubject = new Subject(id, name,shortcut);
+
+}
+
+} catch (Exception e) {
+// TODO: handle exception
+} finally {
+// close JDBC objects
+close(myConn, myStmt, myRs);
+}
+returntheSubject;
+
+}
+
+public Class loadClass(intclassId) {
+
+Class theClass = null;
+
+Connection myConn = null;
+Statement myStmt = null;
+ResultSetmyRs = null;
+
+try {
+
+// get a connection
+myConn = dataSource.getConnection();
+
+// create sqlstmt
+String sql = "SELECT * FROM clasess WHERE id = " + classId;
+myStmt = myConn.createStatement();
+
+// execute query
+myRs = myStmt.executeQuery(sql);
+
+// process result
+while (myRs.next()) {
+
+// retrieve data from result set row
+int id = myRs.getInt("id");
+int section = myRs.getInt("section");
+int subject = myRs.getInt("subject");
+int teacher = myRs.getInt("teacher");
+String time = myRs.getString("time");
+
+Teacher tempTeacher = loadTeacher(teacher);
+Subject tempSubject = loadSubject(subject);
+
+String teacher_name = tempTeacher.getFname() + " " + tempTeacher.getLname();
+
+}
+
+} catch (Exception e) {
+// TODO: handle exception
+} finally {
+// close JDBC objects
+close(myConn, myStmt, myRs);
+}
+returntheClass;
+
+}
+
+public List<Student>loadClassStudents(intclassId) {
+
+List<Student> students = new ArrayList<>();
+
+Connection myConn = null;
+Statement myStmt = null;
+ResultSetmyRs = null;
+
+try {
+
+// get a connection
+myConn = dataSource.getConnection();
+
+// create sqlstmt
+String sql = "SELECT * FROM students WHERE class = " + classId;
+myStmt = myConn.createStatement();
+
+// execute query
+myRs = myStmt.executeQuery(sql);
+
+// process result
+while (myRs.next()) {
+
+// retrieve data from result set row
+int id = myRs.getInt("id");
+String firstName = myRs.getString("fname");
+String lastName = myRs.getString("lname");
+int age = myRs.getInt("age");
+intaclass = myRs.getInt("class");
+
+// create new student object
+Student tempStudent = new Student(id, firstName, lastName, age, aclass);
+students.add(tempStudent);
+
+}
+
+} catch (Exception e) {
+// TODO: handle exception
+} finally {
+// close JDBC objects
+close(myConn, myStmt, myRs);
+}
+return students;
+
+}
+
+private void close(Connection myConn, Statement myStmt, ResultSetmyRs) {
+
+try {
+if (myRs != null) {
+myRs.close();
+}
+if (myStmt != null) {
+myStmt.close();
+}
+if (myConn != null) {
+myConn.close();
+}
+
+} catch (Exception e) {
+e.printStackTrace();
+}
+
+}
+
+}
+
+Class name: TestServlet.java
+packagecom.simplilearn.admin;
+
+importjava.io.IOException;
+importjava.io.PrintWriter;
+importjava.sql.Connection;
+importjava.sql.ResultSet;
+importjava.sql.Statement;
+
+importjavax.annotation.Resource;
+importjavax.servlet.ServletException;
+importjavax.servlet.annotation.WebServlet;
+importjavax.servlet.http.HttpServlet;
+importjavax.servlet.http.HttpServletRequest;
+importjavax.servlet.http.HttpServletResponse;
+importjavax.sql.DataSource;
+
+/**
+* Servlet implementation class TestServlet
+*/
+@WebServlet("/TestServlet")
+public class TestServlet extends HttpServlet {
+private static final long serialVersionUID = 1L;
+
+//Define datasource/connection pool for reference
+
+@Resource(name="jdbc_database")
+privateDataSourcedataSource;
+
+
+
+
+/**
+ * @see HttpServlet#doGet(HttpServletRequest request, HttpServletResponse response)
+ */
+protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+
+
+// Set the printwriter
+PrintWriter out = response.getWriter();
+response.setContentType("text/plain");
+
+// establish connection to the DB
+Connection myConn = null;
+Statement myStmt = null;
+ResultSetmyRs = null;
+
+try {
+
+myConn = dataSource.getConnection();
+//create a sql statement
+String sql = "select * from students";
+myStmt = myConn.createStatement();
+
+
+//execute the sql statement
+myRs = myStmt.executeQuery(sql);
+
+//process the resultset
+while(myRs.next()) {
+String fname = myRs.getString("fname");
+out.println(fname);
+
+}
+
+
+
+}
+catch(Exception e) {
+e.printStackTrace();
+}
+Package name:com.simplilearn.models
+Class name: Class.java
+packagecom.simplilearn.models;
+
+public class Class {
+
+privateint id;
+privateint section;
+private String teacher;
+private String subject;
+private String time;
+
+
+
+public Class(int id, int section, String teacher, String subject, String time) {
+super();
+this.id = id;
+this.section = section;
+this.teacher = teacher;
+this.subject = subject;
+this.time = time;
+}
+
+
+publicintgetId() {
+return id;
+}
+public void setId(int id) {
+this.id = id;
+}
+publicintgetSection() {
+return section;
+}
+public void setSection(int section) {
+this.section = section;
+}
+public String getTeacher() {
+return teacher;
+}
+public void setTeacher(String teacher) {
+this.teacher = teacher;
+}
+public String getSubject() {
+return subject;
+}
+public void setSubject(String subject) {
+this.subject = subject;
+}
+public String getTime() {
+return time;
+}
+public void setTime(String time) {
+this.time = time;
+}
+
+
+
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+}
+
+}
+Clase name: Student.java
+packagecom.simplilearn.models;
+
+public class Student {
+
+privateint id;
+private String fname;
+private String lname;
+privateint age;
+privateintaclass;
+
+
+
+
+public Student(int id, String fname, String lname, int age, intaclass) {
+super();
+this.id = id;
+this.fname = fname;
+this.lname = lname;
+this.age = age;
+this.aclass = aclass;
+}
+
+
+publicintgetId() {
+return id;
+}
+public void setId(int id) {
+this.id = id;
+}
+public String getFname() {
+returnfname;
+}
+public void setFname(String fname) {
+this.fname = fname;
+}
+public String getLname() {
+returnlname;
+}
+public void setLname(String lname) {
+this.lname = lname;
+}
+publicintgetAge() {
+return age;
+}
+public void setAge(int age) {
+this.age = age;
+}
+publicintgetAclass() {
+returnaclass;
+}
+public void setAclass(intaclass) {
+this.aclass = aclass;
+}
+
+
+@Override
+public String toString() {
+return "Student [id=" + id + ", fname=" + fname + ", lname=" + lname + ", age=" + age + ", aclass=" + aclass
++ "]";
+}
+
+
+
+}
+Clase name: Subject.java
+packagecom.simplilearn.models;
+
+public class Subject {
+
+privateint id;
+private String name;
+private String shortcut;
+
+public Subject(int id, String name, String shortcut ) {
+super();
+this.id = id;
+this.name = name;
+this.shortcut = shortcut;
+}
+
+publicintgetId() {
+return id;
+}
+
+public void setId(int id) {
+this.id = id;
+}
+
+public String getShortcut() {
+return shortcut;
+}
+
+public void setShortcut(String shortcut) {
+this.shortcut = shortcut;
+}
+
+public String getName() {
+return name;
+}
+
+public void setName(String name) {
+this.name = name;
+}
+
+
+
+
+}
+Class name: Teacher.java
+packagecom.simplilearn.models;
+
+public class Subject {
+
+privateint id;
+private String name;
+private String shortcut;
+
+public Subject(int id, String name, String shortcut ) {
+super();
+this.id = id;
+this.name = name;
+this.shortcut = shortcut;
+}
+
+publicintgetId() {
+return id;
+}
+
+public void setId(int id) {
+this.id = id;
+}
+
+public String getShortcut() {
+return shortcut;
+}
+
+public void setShortcut(String shortcut) {
+this.shortcut = shortcut;
+}
+
+public String getName() {
+return name;
+}
+
+public void setName(String name) {
+this.name = name;
+}
+
+
+
+
+}
+
+Database:
+
+-- Host: 127.0.0.1:3307
+-- Generation Time: April 21, 2022at 02:00  PM
+-- Server version: 10.4.18-MariaDB
+-- PHP Version: 8.0.3
+
+SET SQL_MODE = "NO_AUTO_VALUE_ON_ZERO";
+START TRANSACTION;
+SET time_zone = "+00:00";
+
+
+/*!40101 SET @OLD_CHARACTER_SET_CLIENT=@@CHARACTER_SET_CLIENT */;
+/*!40101 SET @OLD_CHARACTER_SET_RESULTS=@@CHARACTER_SET_RESULTS */;
+/*!40101 SET @OLD_COLLATION_CONNECTION=@@COLLATION_CONNECTION */;
+/*!40101 SET NAMES utf8mb4 */;
+
+--
+-- Database: `administrative-portal`
+--
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `classes`
+--
+
+CREATE TABLE `classes` (
+  `id` int(11) NOT NULL,
+  `section` int(55) NOT NULL,
+  `teacher` int(11) NOT NULL,
+  `subject` int(11) NOT NULL,
+  `time` varchar(44) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+--
+-- Dumping data for table `classes`
+--
+
+INSERT INTO `classes` (`id`, `section`, `teacher`, `subject`, `time`) VALUES
+(4, 2, 4, 2, '10:25'),
+(3, 2, 2, 4, '8:45');
+drop table classes;
+
+
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `students`
+--
+
+CREATE TABLE `students` (
+  `id` int(11) NOT NULL,
+  `fname` varchar(55) NOT NULL,
+  `lname` varchar(55) NOT NULL,
+  `age` int(11) DEFAULT NULL,
+  `class` int(11) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+
+--
+-- Dumping data for table `students`
+--
+
+INSERT INTO `students` (`id`, `fname`, `lname`, `age`, `class`) VALUES
+(1, 'manoj', 'gampal', 20, 1),
+(2, 'yuvaraj', 'durga', 19, 2),
+(3, 'prasad', 'sai', 18, 1),
+(4, 'akhil', 'Rathod', 19, 2),
+(5, 'Lalith', 'yadav', 24, 1),
+(6, 'prem kumar', 'Rawat', 26, 2);
+
+
+
+
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `subjects`
+--
+
+CREATE TABLE `subjects` (
+  `id` int(11) NOT NULL,
+  `name` varchar(55) NOT NULL,
+  `shortcut` varchar(50) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+--
+-- Dumping data for table `subjects`
+--
+
+INSERT INTO `subjects` (`id`, `name`, `shortcut`) VALUES
+(3, 'physics', 'phy'),
+(4, 'social', 'ss');
+select * from subjects;
+drop table subjects;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `teachers`
+--
+
+CREATE TABLE `teachers` (
+  `id` int(11) NOT NULL,
+  `fname` varchar(55) NOT NULL,
+  `lname` varchar(55) NOT NULL,
+  `age` varchar(11) DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+--
+-- Dumping data for table `teachers`
+--
+
+INSERT INTO `teachers` (`id`, `fname`, `lname`, `age`) VALUES
+(3, 'shiva', 'anjali', '78'),
+(4, 'sirisha', 'yamini', '64');
+-- drop table teachers;
+select *from teachers;
+
+--
+-- Indexes for dumped tables
+--
+
+--
+-- Indexes for table `classes`
+--
+ALTER TABLE `classes`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `subject_id` (`subject`),
+  ADD KEY `teacher_id` (`teacher`);
+
+--
+-- Indexes for table `students`
+--
+ALTER TABLE `students`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `class_id` (`class`);
+
+--
+-- Indexes for table `subjects`
+--
+ALTER TABLE `subjects`
+  ADD PRIMARY KEY (`id`);
+
+--
+-- Indexes for table `teachers`
+--
+ALTER TABLE `teachers`
+  ADD PRIMARY KEY (`id`);
+
+--
+-- AUTO_INCREMENT for dumped tables
+--
+
+--
+-- AUTO_INCREMENT for table `classes`
+--
+ALTER TABLE `classes`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
+
+--
+-- AUTO_INCREMENT for table `students`
+--
+ALTER TABLE `students`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=8;
+
+--
+-- AUTO_INCREMENT for table `subjects`
+--
+ALTER TABLE `subjects`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
+
+--
+-- AUTO_INCREMENT for table `teachers`
+--
+ALTER TABLE `teachers`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
+
+--
+-- Constraints for dumped tables
+--
+
+--
+-- Constraints for table `classes`
+--
+ALTER TABLE `classes`
+  ADD CONSTRAINT `subject_id` FOREIGN KEY (`subject`) REFERENCES `subjects` (`id`),
+  ADD CONSTRAINT `teacher_id` FOREIGN KEY (`teacher`) REFERENCES `teachers` (`id`);
+
+--
+-- Constraints for table `students`
+--
+
+
+
+/*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;
+/*!40101 SET CHARACTER_SET_RESULTS=@OLD_CHARACTER_SET_RESULTS */;
+/*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
+
+Src->main->webapp->META-INF ->css:
+Package name:Css
+Class name: add-student-style.css
+form {
+margin-top: 10px;
+}
+
+label {
+font-size: 16px; 
+width: 100px; 
+display: block; 
+text-align: right;
+margin-right: 10px;
+margin-top: 8px;
+margin-bottom: 8px;
+}
+
+input {
+width: 250px;
+border: 1px solid #666; 
+border-radius: 5px; 
+padding: 4px; 
+font-size: 16px;
+}
+
+.save {
+font-weight: bold;
+width: 130px; 
+padding: 5px 10px; 
+margin-top: 30px;
+background: #cccccc;
+}
+
+table {   
+border-style:none;
+width:50%;
+}
+
+tr:nth-child(even) {background: #FFFFFF}
+tr:nth-child(odd) {background: #FFFFFF}
+
+tr {
+border-style:none;
+text-align:left;	
+}
+Class name: login.css
+Body {  
+font-family: Calibri, Helvetica, sans-serif;  
+background-color: pink;  
+
+}  
+button {   
+justify-content: center;
+background-color: #4CAF50;   
+width: 100%;  
+color: white;   
+padding: 15px;   
+margin: 10px 0px;   
+border: none;   
+cursor: pointer;   
+         }  
+
+form {   
+border: 1.4px solid black;
+width: 45%;
+margin: 0 auto;
+    }   
+input[type=text], input[type=password] {  
+justify-content: center;  
+width: 100%;   
+margin: 8px 0;  
+padding: 12px 20px;   
+display: inline-block;   
+border: 2px solid green;   
+box-sizing: border-box;   
+    }  
+button:hover {   
+opacity: 0.7;   
+    }   
+
+
+
+.container {   
+		
+justify-content: center;
+padding: 15px;   
+background-color: #FFF8DC;  
+    }   
+
+Class name: Context.xml
+<Context>
+
+<Resource name="jdbc_database" 
+			auth="Container" type="javax.sql.DataSource"
+maxActive="20" maxIdle="5" maxWait="10000"
+username="root" password="Bhavs@333" 
+driverClassName="com.mysql.cj.jdbc.Driver"
+url="jdbc:mysql://localhost:3306/admindb"/>
+
+</Context>
+Class name: MANIFEST.MF
+Manifest-Version: 1.0
+Class-Path:
+
+Package name: WEB-lNF
+Class name: Classes-list.jsp
+<%@ tagliburi="http://java.sun.com/jsp/jstl/core" prefix="c"%>
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="ISO-8859-1">
+<title>List of Classes</title>
+<link type="text/css" rel="stylesheet" href="css/style.css">
+</head>
+<body style="background-image: url('css/background.jpg');">
+<div id="page">
+<jsp:include page="left-list.jsp" />
+
+
+<div id="wrapper">
+
+<div id="header">
+<h3>Classes</h3>
+</div>
+</div>
+
+
+<div id="container">
+
+<div id="content">
+
+<table>
+
+<tr>
+
+<th>Section</th>
+<th>Subject</th>
+<th>Teacher</th>
+<th>Time</th>
+<th>List of Students</th>
+
+</tr>
+
+<c:forEachvar="tempClass" items="${CLASSES_LIST }">
+<tr>
+
+<c:urlvar="tempLink" value="AdminControllerServlet">
+<c:param name="command" value="ST_LIST" />
+<c:param name="classId" value="${tempClass.id }" />
+<c:param name="section" value="${tempClass.section }" />
+<c:param name="subject" value="${tempClass.subject }" />
+</c:url>
+
+<td>${tempClass.section}</td>
+<td>${tempClass.subject}</td>
+<td>${tempClass.teacher}</td>
+<td>${tempClass.time}</td>
+<td><a href="${tempLink }">List</a></td>
+
+
+
+
+
+</tr>
+
+
+</c:forEach>
+
+</table>
+</div>
+</div>
+</div>
+
+</body>
+</html>
+Class name:clas-student.jsp
+<%@ tagliburi="http://java.sun.com/jsp/jstl/core" prefix="c"%>
+
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="ISO-8859-1">
+<title>Students of a Class</title>
+<link type="text/css" rel="stylesheet" href="css/style.css">
+</head>
+<body style="background-image: url('css/background.jpg');">
+<div id="page" >
+<jsp:include page="left-list.jsp" />
+
+
+<div id="wrapper">
+
+<div id="header">
+<h3>Students of ${SUBJECT} class section ${SECTION} </h3>
+</div>
+</div>
+
+
+<div id="container">
+
+<div id="content">
+
+<table>
+
+<tr>
+
+<th>First Name</th>
+<th>Last Name</th>
+<th>age</th>
+
+</tr>
+
+<c:forEachvar="tempStudent" items="${STUDENTS_LIST}">
+<tr>
+
+<td>${tempStudent.fname}</td>
+<td>${tempStudent.lname}</td>
+<td>${tempStudent.age}</td>
+
+
+
+</tr>
+
+
+</c:forEach>
+
+</table>
+</div>
+</div>
+</div>
+
+</body>
+</html>
+Class name: left-list.jsp
+<%@ tagliburi="http://java.sun.com/jsp/jstl/core" prefix="c"%>
+
+<div class="sidenav">
+<h3 id="logo">
+Administrative <br /> Academy Portal
+</h3>
+<c:urlvar="classesLink" value="AdminControllerServlet">
+<c:param name="command" value="CLASSES" />
+</c:url>
+
+<c:urlvar="subjectsLink" value="AdminControllerServlet">
+<c:param name="command" value="SUBJECTS" />
+</c:url>
+
+<c:urlvar="teachersLink" value="AdminControllerServlet">
+<c:param name="command" value="TEACHERS" />
+</c:url>
+
+<c:urlvar="studentsLink" value="AdminControllerServlet">
+<c:param name="command" value="STUDENTS" />
+</c:url>
+
+
+
+
+
+
+<a class="bar-item" href="${classesLink}">Classes</a>
+<a class="bar-item" href="${subjectsLink}">Subjects</a>
+<a class="bar-item" href="${teachersLink}">Teachers</a>
+<a class="bar-item" href="${studentsLink}">Students</a>
+<a class="bar-item" href="login.jsp">Log out</a>
+
+</div>
+Class name: list-student.jsp
+<%@ tagliburi="http://java.sun.com/jsp/jstl/core" prefix="c"%>
+
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="ISO-8859-1">
+<title>List of Students</title>
+<link type="text/css" rel="stylesheet" href="css/style.css">
+</head>
+<body style="background-image: url('css/background.jpg');">
+<div id="page" >
+<jsp:include page="left-list.jsp" />
+
+
+<div id="wrapper">
+
+<div id="header">
+<h3>Students</h3>
+</div>
+</div>
+
+
+<div id="container">
+
+<div id="content">
+
+<table>
+
+<tr>
+
+<th>First Name</th>
+<th>Last Name</th>
+<th>age</th>
+
+
+</tr>
+
+<c:forEachvar="tempStudent" items="${STUDENT_LIST }">
+<tr>
+
+<td>${tempStudent.fname}</td>
+<td>${tempStudent.lname}</td>
+<td>${tempStudent.age}</td>
+
+
+
+</tr>
+
+
+</c:forEach>
+
+</table>
+</div>
+</div>
+</div>
+
+</body>
+</html>
+Class name:login.jsp
+<%@ tagliburi="http://java.sun.com/jsp/jstl/core" prefix="c"%>
+
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="ISO-8859-1">
+<title>Login</title>
+<link type="text/css" rel="stylesheet" href="css/login.css">
+</head>
+<body style="background-image: url('css/background.jpg');">
+
+<center><h1> Admin Login </h1></center>
+<form action="AdminControllerServlet" method="POST">
+<div class="container">
+	<input type="hidden" name="command" value="LOGIN" />
+<label>Username : </label>
+<br/>
+<input type="text" placeholder="Enter Username" name="username" required>
+<br/>
+<label>Password : </label>
+<br/>
+<input type="password" placeholder="Enter Password" name="password" required>
+<br/>
+<button type="submit">Login</button>
+<br/>
+<input type="checkbox" checked="checked"> Remember me   
+
+</div>
+</form>
+
+
+</body>
+</html>
+Class name: subjects-list.jsp
+<%@ tagliburi="http://java.sun.com/jsp/jstl/core" prefix="c"%>
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="ISO-8859-1">
+<title>List of Teachers</title>
+<link type="text/css" rel="stylesheet" href="css/style.css">
+</head>
+<body style="background-image: url('css/background.jpg');">
+<div id="page">
+<jsp:include page="left-list.jsp" />
+
+
+<div id="wrapper">
+
+<div id="header">
+<h3>Subjects</h3>
+</div>
+</div>
+
+
+<div id="container">
+
+<div id="content">
+
+<table>
+
+<tr>
+
+<th>Name</th>
+<th>Shortcut</th>
+
+
+</tr>
+
+<c:forEachvar="tempSubject" items="${SUBJECTS_LIST }">
+<tr>
+
+<td>${tempSubject.name}</td>
+<td>${tempSubject.shortcut}</td>
+
+
+</tr>
+
+
+</c:forEach>
+
+</table>
+</div>
+</div>
+</div>
+
+</body>
+</html>
+Class name: teachers-list.jsp
+<%@ tagliburi="http://java.sun.com/jsp/jstl/core" prefix="c"%>
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="ISO-8859-1">
+<title>List of Teachers</title>
+<link type="text/css" rel="stylesheet" href="css/style.css">
+</head>
+<body style="background-image: url('css/background.jpg');">
+<div id="page">
+<jsp:include page="left-list.jsp" />
+
+
+<div id="wrapper">
+
+<div id="header">
+<h3>Teachers</h3>
+</div>
+</div>
+
+
+<div id="container">
+
+<div id="content">
+
+<table>
+
+<tr>
+
+<th>First Name</th>
+<th>Last Name</th>
+<th>age</th>
+
+</tr>
+
+<c:forEachvar="tempStudent" items="${TEACHERS_LIST }">
+<tr>
+
+<td>${tempStudent.fname}</td>
+<td>${tempStudent.lname}</td>
+<td>${tempStudent.age}</td>
+
+
+
+</tr>
+
+
+</c:forEach>
+
+</table>
+</div>
+</div>
+</div>
+
+</body>
+</html>
