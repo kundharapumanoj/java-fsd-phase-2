@@ -1,0 +1,193 @@
+SOURCE CODE :
+index.html file :
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="ISO-8859-1">
+<title>Insert title here</title>
+</head>
+<body>
+<form action="save"method="post"> Name:<input type="text" name="pname"><br> Price:<input type="text" name="pprice"><br>
+
+<input type="submit" value="save"><br>
+</form>
+
+</body>
+</html>
+
+
+application.properties file :
+driver=com.mysql.cj.jdbc.Driver url=jdbc:mysql://localhost:3306/ecommerce username=manoj
+password=manoj@123
+
+
+
+
+
+
+
+
+
+
+
+
+
+ 
+Database Configuration : (DBConfig)
+
+package com.simplilearn.com;
+
+import java.sql.Connection; import java.sql.DriverManager; import java.sql.SQLException; import java.util.Properties;
+
+public class DBConfig {
+
+public static Connection getConnection(Properties props) {
+
+
+Connection connection=null;
+
+try {
+//get url,username,password
+String driver= props.getProperty("driver"); String url= props.getProperty("url");
+String username= props.getProperty("username"); String password= props.getProperty("password");
+
+//to load driver
+Class.forName(driver);
+
+ 
+try {
+
+username, password);
+ 
+
+connection= DriverManager.getConnection(url,
+ 
+} catch (SQLException e) {
+// TODO Auto-generated catch block e.printStackTrace();
+}
+
+} catch (ClassNotFoundException e) {
+// TODO Auto-generated catch block e.printStackTrace();
+}
+
+return connection;
+}
+}
+ 
+SaveServlet :
+
+package com.simplilearn.com;
+
+import java.io.IOException; import java.io.InputStream; import java.io.PrintWriter; import java.math.BigDecimal;
+import java.sql.CallableStatement; import java.sql.Connection; import java.sql.SQLException; import java.util.Properties;
+
+import javax.servlet.ServletException; import javax.servlet.annotation.WebServlet; import javax.servlet.http.HttpServlet;
+import javax.servlet.http.HttpServletRequest; import javax.servlet.http.HttpServletResponse;
+
+
+
+@WebServlet("/save")
+public class saveservlet extends HttpServlet {
+private static final long serialVersionUID = 1L;
+
+
+protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+PrintWriter out = response.getWriter(); Properties props = new Properties();
+InputStream in = getServletContext().getResourceAsStream("/WEB-INF/application.properties");
+props.load(in);
+
+Connection conn = DBConfig.getConnection(props);
+
+/*
+*	if (conn != null) out.print("Connection is Established"); else
+*	out.print("Error while connecting connection");
+ 
+*/
+
+String name= request.getParameter("pname"); String price= request.getParameter("pprice");
+
+
+try {
+CallableStatement stmt= conn.prepareCall("{call
+add_product(?,?)}");
+
+stmt.setString(1, name);
+stmt.setBigDecimal(2, new BigDecimal(price));
+
+
+int x=stmt.executeUpdate(); if(x>0) {
+
+ 
+
+
+
+}
+else {
+
+
+}
+ 
+System.out.println("Data inserted Successfully"); out.print("Data inserted Successfully"); response.sendRedirect("index.html");
+
+
+System.out.println("Error while uploading"); response.sendRedirect("index.html");
+ 
+
+
+} catch (SQLException e) {
+// TODO Auto-generated catch block e.printStackTrace();
+}
+}
+
+
+
+
+
+protected void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+// TODO Auto-generated method stub doGet(request, response);
+}
+
+}
+ 
+Hibernate.cfg.xml file :
+
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE hibernate-configuration PUBLIC
+"-//Hibernate/Hibernate Configuration DTD 3.0//EN" "http://www.hibernate.org/dtd/hibernate-configuration-3.0.dtd">
+
+<hibernate-configuration>
+
+<session-factory>
+<property name="connection.driver_class">com.mysql.cj.jdbc.Driver</property>
+<property name="connection.url">jdbc:mysql://localhost:3306/ecommerce</property>
+<property name="connection.username">manoj</property>
+<property name="connection.password">manoj@123</property>
+<property name="hbm2ddl.auto">update</property>
+<property name="dialect">org.hibernate.dialect.MySQL8Dialect</property>
+<property name="show_sql">true</property>
+<mapping resource="eproduct.hbm.xml"/>
+</session-factory>
+</hibernate-configuration>
+
+
+eproduct.hbm.xml :
+
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE hibernate-mapping PUBLIC
+"-//Hibernate/Hibernate Mapping DTD 3.0//EN" "http://www.hibernate.org/dtd/hibernate-mapping-3.0.dtd">
+
+<hibernate-mapping package="com.addaproduct">
+<class name="EProduct" table="eproduct">
+<id name="ID" type="long" column="ID">
+<generator class="identity"></generator>
+</id>
+<property name="name" type="string" column="NAME"></property>
+<property name="price" type="big_decimal" column="PRICE"></property>
+ 
+<property name="dateAdded" type="timestamp" column="DATE_ADDED"></property>
+
+
+
+</class>
+</hibernate-mapping
+
